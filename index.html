@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Open Nepal Earn & Grow</title>
+
+<style>
+body{
+  margin:0;
+  font-family:sans-serif;
+  background:linear-gradient(135deg,#4facfe,#00f2fe);
+  color:#fff;
+}
+
+/* Auth Page */
+.auth{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+.auth input{
+  padding:10px;
+  margin:5px;
+  border:none;
+  border-radius:10px;
+  width:80%;
+}
+.btn{
+  padding:10px;
+  border:none;
+  border-radius:10px;
+  background:#ffcc00;
+  color:#000;
+  margin:5px;
+  width:80%;
+}
+
+/* Home */
+#home{
+  display:none;
+  padding:10px;
+}
+
+.topbar{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:rgba(255,255,255,0.2);
+  padding:10px;
+  border-radius:15px;
+}
+
+.card{
+  background:rgba(255,255,255,0.2);
+  margin-top:10px;
+  padding:15px;
+  border-radius:15px;
+}
+
+input{
+  width:100%;
+  padding:8px;
+  border-radius:8px;
+  border:none;
+}
+button{
+  margin-top:5px;
+  padding:8px;
+  border:none;
+  border-radius:8px;
+  background:#00ffcc;
+}
+
+iframe{
+  width:100%;
+  height:200px;
+  border-radius:10px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN / SIGNUP -->
+<div class="auth" id="auth">
+  <h2>🇳🇵 Open Nepal Earn & Grow</h2>
+  <input type="text" id="name" placeholder="Name">
+  <input type="email" id="email" placeholder="Email">
+  <input type="password" id="password" placeholder="Password">
+  <input type="text" id="ref" placeholder="Referral Code (optional)">
+  <button class="btn" onclick="signup()">Signup</button>
+  <button class="btn" onclick="login()">Login</button>
+</div>
+
+<!-- HOME -->
+<div id="home">
+
+  <div class="topbar">
+    <div>
+      👤 <span id="username"></span>
+    </div>
+    <div>
+      💰 <span id="coins">0</span>
+    </div>
+  </div>
+
+  <!-- Add Video -->
+  <div class="card">
+    <h3>➕ Add Video (Cost: 50 coins)</h3>
+    <input id="videoUrl" placeholder="YouTube Video URL">
+    <button onclick="addVideo()">Submit</button>
+  </div>
+
+  <!-- Watch Videos -->
+  <div class="card">
+    <h3>🎥 Watch & Earn</h3>
+    <div id="videos"></div>
+  </div>
+
+  <!-- Subscribe -->
+  <div class="card">
+    <h3>🔔 Subscribe & Earn</h3>
+    <input id="channelUrl" placeholder="Channel URL">
+    <button onclick="subscribe()">Subscribe (+100)</button>
+  </div>
+
+  <!-- Referral -->
+  <div class="card">
+    <h3>👥 Referral</h3>
+    Code: <span id="refcode"></span>
+    <button onclick="copyRef()">Copy</button>
+  </div>
+
+  <!-- Withdraw -->
+  <div class="card">
+    <h3>💳 Withdraw</h3>
+    <button onclick="withdraw(2000)">UPI (2000)</button>
+    <button onclick="withdraw(5000)">Paytm (5000)</button>
+  </div>
+
+</div>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDnuw-707NQ1LKEX1X4uEDVLL5yveobu-Y",
+  authDomain: "open-nepal-earn-to-grow.firebaseapp.com",
+  databaseURL: "https://open-nepal-earn-to-grow-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "open-nepal-earn-to-grow",
+  storageBucket: "open-nepal-earn-to-grow.firebasestorage.app",
+  messagingSenderId: "235834177721",
+  appId: "1:235834177721:web:d60973b061a1bb94cf4368"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+let userId;
+
+// Signup
+function signup(){
+  let email=document.getElementById("email").value;
+  let pass=document.getElementById("password").value;
+  let name=document.getElementById("name").value;
+  let ref=document.getElementById("ref").value;
+
+  auth.createUserWithEmailAndPassword(email,pass)
+  .then(res=>{
+    userId=res.user.uid;
+    let code="REF"+Math.floor(Math.random()*10000);
+
+    db.ref("users/"+userId).set({
+      name:name,
+      coins:500,
+      refCode:code
+    });
+
+    if(ref){
+      db.ref("users").once("value",snap=>{
+        snap.forEach(u=>{
+          if(u.val().refCode==ref){
+            db.ref("users/"+u.key+"/coins").transaction(c=>c+500);
+          }
+        });
+      });
+    }
+
+  });
+}
+
+// Login
+function login(){
+  let email=document.getElementById("email").value;
+  let pass=document.getElementById("password").value;
+
+  auth.signInWithEmailAndPassword(email,pass);
+}
+
+// Auth State
+auth.onAuthStateChanged(user=>{
+  if(user){
+    userId=user.uid;
+    document.getElementById("auth").style.display="none";
+    document.getElementById("home").style.display="block";
+
+    db.ref("users/"+userId).on("value",snap=>{
+      let d=snap.val();
+      document.getElementById("username").innerText=d.name;
+      document.getElementById("coins").innerText=d.coins;
+      document.getElementById("refcode").innerText=d.refCode;
+    });
+
+    loadVideos();
+  }
+});
+
+// Add Video
+function addVideo(){
+  let url=document.getElementById("videoUrl").value;
+
+  db.ref("users/"+userId+"/coins").transaction(c=>{
+    if(c>=50){
+      db.ref("videos").push({url:url});
+      return c-50;
+    }else{
+      alert("Not enough coins");
+    }
+  });
+}
+
+// Load Videos
+function loadVideos(){
+  db.ref("videos").on("value",snap=>{
+    let html="";
+    snap.forEach(v=>{
+      let url=v.val().url.replace("watch?v=","embed/");
+      html+=`
+      <iframe src="${url}"></iframe>
+      <button onclick="reward()">Watch 60 sec = 60 coins</button>
+      `;
+    });
+    document.getElementById("videos").innerHTML=html;
+  });
+}
+
+// Reward
+function reward(){
+  setTimeout(()=>{
+    db.ref("users/"+userId+"/coins").transaction(c=>c+60);
+    alert("60 coins earned");
+  },60000);
+}
+
+// Subscribe
+function subscribe(){
+  db.ref("users/"+userId+"/coins").transaction(c=>c+100);
+  alert("Subscribed +100 coins");
+}
+
+// Withdraw
+function withdraw(amount){
+  db.ref("users/"+userId+"/coins").transaction(c=>{
+    if(c>=amount){
+      db.ref("withdraw").push({user:userId,amount:amount,status:"pending"});
+      return c-amount;
+    }else{
+      alert("Not enough coins");
+    }
+  });
+}
+
+// Copy Ref
+function copyRef(){
+  let code=document.getElementById("refcode").innerText;
+  navigator.clipboard.writeText(code);
+  alert("Copied");
+}
+</script>
+
+</body>
+</html>
